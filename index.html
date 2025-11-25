@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captcha Échappatoire : La Sécurité Hilarante</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="header-info">
+            <h1 id="game-title">Captcha Échappatoire</h1>
+            <div id="timer-display">
+                <span id="time-value">00:00</span>
+            </div>
+        </div>
+        
+        <h2 id="captcha-title">Sélectionnez toutes les cases contenant un... <span id="theme-name"></span></h2>
+
+        <div id="image-grid" class="grid-3x3">
+            <div class="tile" data-index="0"></div>
+            <div class="tile" data-index="1"></div>
+            <div class="tile" data-index="2"></div>
+            <div class="tile" data-index="3"></div>
+            <div class="tile" data-index="4"></div>
+            <div class="tile" data-index="5"></div>
+            <div class="tile" data-index="6"></div>
+            <div class="tile" data-index="7"></div>
+            <div class="tile" data-index="8"></div>
+        </div>
+
+        <button id="verify-button">Vérifier et Prier</button>
+    </div>
+
+    <div id="custom-cursor"></div>
+
+    <div id="popup-overlay"> 
+        <div id="popup-content">
+            <h3 id="popup-title"></h3>
+            <p id="popup-message"></p>
+            <button id="popup-close-button">Recommencer</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

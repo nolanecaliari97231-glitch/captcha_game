@@ -1,0 +1,315 @@
+/* =============================== */
+/* GLOBAL ET FOND DE PAGE */
+/* =============================== */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1f2833 0%, #0d1218 100%); 
+    margin: 0;
+    cursor: none; /* Cache le curseur réel PARTOUT */
+    overflow-x: hidden;
+}
+
+#game-container {
+    background-color: #ffffff; 
+    padding: 25px 20px; 
+    border-radius: 18px; 
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4); 
+    text-align: center;
+    width: 90%;
+    max-width: 650px;
+    border: 3px solid #66fcf1; 
+    flex-shrink: 0;
+    
+    max-height: 95vh; 
+    overflow-y: auto; 
+    position: relative; 
+}
+
+/* =============================== */
+/* EFFET DE TREMBLEMENT LÉGER */
+/* =============================== */
+
+@keyframes shake {
+    /* Mouvement max 1px, très subtil */
+    0% { transform: translate(1px, 0px); }
+    25% { transform: translate(-1px, 1px); }
+    50% { transform: translate(1px, -1px); }
+    75% { transform: translate(-1px, 0px); }
+    100% { transform: translate(0px, 0px); }
+}
+
+#game-container.shake {
+    animation: shake 0.05s infinite; 
+}
+
+
+/* =============================== */
+/* EN-TÊTE ET CHRONO /
+/* =============================== */
+
+#header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px; 
+    padding-bottom: 8px; 
+    border-bottom: 2px solid #e0e0e0;
+}
+
+#game-title {
+    color: #0b0c10; 
+    font-size: 2.5em; 
+    font-weight: 800;
+    text-align: left;
+    margin: 0;
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+    
+    /* Style moderne avec dégradé */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    
+    /* Effets de texte modernes */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    
+    /* Animation subtile */
+    animation: titleGlow 3s ease-in-out infinite alternate;
+}
+
+/* Animation de lueur subtile pour le titre */
+@keyframes titleGlow {
+    from {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1),
+                     0 0 0px rgba(102, 126, 234, 0.5);
+    }
+    to {
+        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.15),
+                     0 0 15px rgba(102, 126, 234, 0.3);
+    }
+}
+
+#timer-display {
+    font-size: 2.3em; 
+    font-family: monospace;
+    color: #ffc107; /* Jaune */
+    font-weight: 900;
+    text-shadow: 0 0 10px rgba(255, 193, 7, 0.8);
+    background-color: #333; 
+    padding: 3px 12px; 
+    border-radius: 8px;
+    border: 1px solid #ffc107;
+}
+
+/* Police mono-espacée pour le chrono */
+#time-value {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 1em; 
+    font-weight: 900;
+}
+
+
+#captcha-title {
+    font-size: 1.2em; 
+    color: #333;
+    margin: 12px 0 18px 0; 
+}
+
+#theme-name {
+    color: #e74c3c; 
+    font-weight: 900;
+    text-transform: uppercase;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); 
+}
+
+
+/* =============================== */
+/* CURSEUR FICTIF 
+/* =============================== */
+
+#custom-cursor {
+    width: 15px; 
+    height: 15px; 
+    background-color: #e74c3c; /* Rouge */
+    border: 2px solid #0b0c10; 
+    border-radius: 50%;
+    position: fixed; /* CRITIQUE : Se positionne par rapport à la fenêtre de vue (viewport) */
+    pointer-events: none; 
+    z-index: 999999; /* CRITIQUE : Z-Index ultra élevé */
+    transform: translate(-50%, -50%); 
+    transition: none; 
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.9);
+    
+    /* CORRECTION : Affiché par défaut */
+    display: block;
+}
+
+/* =============================== */
+/* GRILLE, TUILES ET BOUTON */
+/* =============================== */
+
+.grid-3x3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); 
+    grid-gap: 5px; 
+    margin-bottom: 20px; 
+    border: 4px solid #ddd; 
+    padding: 3px;
+    border-radius: 10px;
+    background-color: #f8f8f8;
+}
+
+.tile {
+    width: 100%;
+    aspect-ratio: 1 / 1; 
+    background-size: cover; 
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 5px;
+    
+    border: 4px solid transparent; 
+    cursor: none; 
+    transition: border 0.2s, transform 0.2s, box-shadow 0.2s; 
+}
+
+.tile.selected {
+    border: 4px solid #66fcf1; 
+    opacity: 1; 
+    transform: scale(1.03); 
+    box-shadow: 0 0 20px rgba(102, 252, 241, 0.8); 
+}
+
+#verify-button {
+    background-color: #45a049; 
+    color: white;
+    border: none;
+    padding: 12px 25px; 
+    font-size: 1.1em; 
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    width: 100%;
+    max-width: 350px;
+    box-shadow: 0 6px 0 #38761d; 
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#verify-button:hover {
+    background-color: #38761d;
+    transform: translateY(2px);
+    box-shadow: 0 4px 0 #38761d;
+}
+#verify-button:active {
+    transform: translateY(6px);
+    box-shadow: none;
+}
+
+
+/* =============================== */
+/* POP-UPS */
+/* =============================== */
+
+#popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95); 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9000; 
+    
+    visibility: hidden; 
+    opacity: 0;        
+    transition: opacity 0.4s linear, visibility 0s 0.4s; 
+}
+
+#popup-overlay.active {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.4s linear, visibility 0s; 
+}
+
+#popup-content {
+    background: linear-gradient(to bottom, #ffffff, #f0f0f0); 
+    padding: 50px 60px; 
+    border-radius: 15px;
+    text-align: center;
+    max-width: 600px; 
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+    /* Bordure par défaut (ÉCHEC) */
+    border: 5px solid #ff4500; 
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* Style spécifique pour le pop-up de SUCCÈS */
+#popup-content.success-popup {
+    border-color: #2ecc71; /* Vert pour le succès */
+    background: linear-gradient(to bottom, #f8fff8, #e8f5e8);
+}
+
+#popup-title {
+    font-size: 2em; 
+    margin-bottom: 25px;
+    color: #e74c3c; 
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+/* Style spécifique pour le titre de SUCCÈS */
+#popup-title.success-title {
+    color: #2ecc71;
+    font-size: 2.5em; /* Texte plus grand */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#popup-message {
+    font-size: 1.1em;
+    color: #333;
+    line-height: 1.5;
+}
+
+/* Style spécifique pour le message de SUCCÈS */
+#popup-message.success-message {
+    font-size: 1.3em; 
+    color: #2d5016;
+    font-weight: 500;
+}
+
+#popup-close-button {
+    margin-top: 30px;
+    background-color: #3498db; 
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    font-size: 1.1em;
+    border-radius: 8px;
+    cursor: pointer; 
+    transition: background-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 0 #2980b9; 
+}
+
+#popup-close-button:hover {
+    background-color: #2980b9;
+}
+
+/* Cache le bouton pour le pop-up de succès */
+#popup-content.success-popup #popup-close-button {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+}
