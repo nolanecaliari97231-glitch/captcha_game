@@ -8,10 +8,11 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    height: 100vh; /* AJOUTÉ: Garantit 100% de la hauteur de la fenêtre */
     background: linear-gradient(135deg, #1f2833 0%, #0d1218 100%); 
     margin: 0;
     cursor: none; /* Cache le curseur réel PARTOUT */
-    overflow-x: hidden;
+    overflow: hidden; /* MODIFIÉ: Cache tout débordement pour empêcher le défilement */
 }
 
 #game-container {
@@ -25,8 +26,9 @@ body {
     border: 3px solid #66fcf1; 
     flex-shrink: 0;
     
-    max-height: 95vh; 
-    overflow-y: auto; 
+    /* MODIFIÉ: Limite la hauteur maximale du conteneur pour s'adapter à l'écran */
+    max-height: calc(100vh - 40px); /* 40px de marge */
+    overflow-y: auto; /* Permet le défilement interne si le contenu est trop grand */
     position: relative; 
 }
 
@@ -49,7 +51,7 @@ body {
 
 
 /* =============================== */
-/* EN-TÊTE ET CHRONO /
+/* EN-TÊTE ET CHRONO */
 /* =============================== */
 
 #header-info {

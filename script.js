@@ -34,6 +34,29 @@ function shuffleArray(array) {
     }
 }
 
+/**
+ * Vérifie si le nouvel index (i) est adjacent (horizontalement ou verticalement)
+ * à l'un des indices déjà corrects (currentCorrects) sur une grille 3x3.
+ */
+function isAdjacent(i, currentCorrects) {
+    if (currentCorrects.length === 0) return false;
+
+    for (const correctIndex of currentCorrects) {
+        // Voisinage Vertical (Haut/Bas : différence de 3)
+        if (i === correctIndex - 3 || i === correctIndex + 3) {
+            return true;
+        }
+        
+        // Voisinage Horizontal (Gauche/Droite : différence de 1)
+        // Vérifie aussi qu'ils sont sur la même ligne (pour éviter 2 adjacent à 3, ou 5 à 6)
+        if (Math.abs(i - correctIndex) === 1 && Math.floor(i / 3) === Math.floor(correctIndex / 3)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 
 // =================================================================================
 // BLOC 1 : MOTEUR ET ÉVÉNEMENTS
@@ -153,24 +176,79 @@ function handleMouseInversion(e) {
 function prepareGridForLevel(levelIndex) {
     const themeClean = cleanThemeName(NIVEAUX[levelIndex].theme);
     const tiles = document.querySelectorAll('.tile');
+    const correctImageCount = NIVEAUX[levelIndex].correctImages.length;
     
-    const imageIndices = [1, 2, 3, 4, 5, 6, 7, 8, 9]; 
-    shuffleArray(imageIndices); 
+    let actualCorrectGridIndices = [];
+    let imageIndices = [];
+    let gridIndices = [];
+    
+    // --- NOUVELLE LOGIQUE POUR ÉVITER L'ADJACENCE (DO...WHILE) ---
+    do {
+        // 1. Réinitialiser
+        actualCorrectGridIndices = [];
+        
+        // 2. Préparer les indices d'images (1 à 9) et les indices de grille (0 à 8)
+        imageIndices = [1, 2, 3, 4, 5, 6, 7, 8, 9]; 
+        shuffleArray(imageIndices); 
+        
+        gridIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        shuffleArray(gridIndices); // Mélange l'ordre d'affectation des indices de grille
+        
+        // 3. Essayer de placer les images correctes
+        let correctImageCounter = 0;
+        
+        for (const gridIndex of gridIndices) {
+            // Vérifie si on a déjà atteint le nombre d'images correctes
+            if (correctImageCounter >= correctImageCount) break; 
+            
+            // Si la tuile N'EST PAS adjacente aux tuiles correctes déjà sélectionnées
+            if (!isAdjacent(gridIndex, actualCorrectGridIndices)) {
+                
+                // Marque cet indice de grille comme correct
+                actualCorrectGridIndices.push(gridIndex);
+                correctImageCounter++;
+            }
+        }
+    
+    // Répéter si on n'a pas réussi à placer le nombre requis d'images correctes
+    } while (actualCorrectGridIndices.length < correctImageCount);
+    
+    // 4. Une fois que les indices de grille CORRECTS sont choisis, on distribue les images
+    
+    const finalImageMapping = new Array(9);
+    
+    // a. Affecte les images correctes aux indices de grille choisis (randomly)
+    // On doit faire une copie car .correctImages est un tableau de référence
+    const shuffedCorrectImages = [...NIVEAUX[levelIndex].correctImages]; 
+    shuffleArray(shuffedCorrectImages); 
+    
+    for (let k = 0; k < correctImageCount; k++) {
+        const correctGridIndex = actualCorrectGridIndices[k];
+        const correctImageID = shuffedCorrectImages[k];
+        finalImageMapping[correctGridIndex] = correctImageID;
+    }
 
-    const actualCorrectGridIndices = [];
-
+    // b. Affecte les images restantes aux indices de grille restants
+    const incorrectImages = imageIndices.filter(imgID => !NIVEAUX[levelIndex].correctImages.includes(imgID));
+    let incorrectImageIndex = 0;
+    
+    for (let i = 0; i < 9; i++) {
+        if (finalImageMapping[i] === undefined) {
+            finalImageMapping[i] = incorrectImages[incorrectImageIndex];
+            incorrectImageIndex++;
+        }
+    }
+    
+    // 5. Appliquer les images à la grille
     tiles.forEach((tile, i) => {
-        const imageNum = imageIndices[i]; 
+        const imageNum = finalImageMapping[i];
         const imageUrl = `./images/${themeClean}_${imageNum}.jpg`; 
         
         tile.style.backgroundImage = `url(${imageUrl})`; 
         tile.classList.remove('selected'); 
-        
-        if (NIVEAUX[levelIndex].correctImages.includes(imageNum)) {
-            actualCorrectGridIndices.push(i);
-        }
     });
     
+    // 6. Sauvegarder les vrais indices corrects pour la vérification
     NIVEAUX[levelIndex].currentCorrectGridIndices = actualCorrectGridIndices;
 }
 
