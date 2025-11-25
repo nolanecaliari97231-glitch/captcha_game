@@ -1,8 +1,8 @@
 // --- DÉFINITION GLOBALE DU JEU ---
 const NIVEAUX = [
-    { theme: "Feu de signalisation", temps: 60, inversion: "none", correctImages: [1, 2, 3] },
-    { theme: "Passage piéton", temps: 45, inversion: "none", correctImages: [1, 2, 3] },
-    { theme: "Arbre", temps: 30, inversion: "x", correctImages: [1, 2, 3] },
+    { theme: "Feu de signalisation", temps: 35, inversion: "none", correctImages: [1, 2, 3] },
+    { theme: "Passage piéton", temps: 30, inversion: "none", correctImages: [1, 2, 3] },
+    { theme: "Arbre", temps: 25, inversion: "x", correctImages: [1, 2, 3] },
     { theme: "Taxi", temps: 20, inversion: "y", correctImages: [1, 2, 3] },
     { theme: "Hydrant", temps: 15, inversion: "xy", correctImages: [1, 2, 3, 4] } 
 ];
