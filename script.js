@@ -4,7 +4,8 @@ const NIVEAUX = [
     { theme: "Passage piéton", temps: 30, inversion: "none", correctImages: [1, 2, 3] },
     { theme: "Arbre", temps: 25, inversion: "x", correctImages: [1, 2, 3] },
     { theme: "Taxi", temps: 20, inversion: "y", correctImages: [1, 2, 3] },
-    { theme: "Hydrant", temps: 15, inversion: "xy", correctImages: [1, 2, 3, 4] } 
+    // images réelles nommées hydrant_1.jpg ... hydrant_4.jpg
+    { theme: "Bouches d'incendie", temps: 15, inversion: "xy", correctImages: [1, 2, 3, 4], imagePrefix: "hydrant" } 
 ];
 
 let currentLevel = 0;
@@ -23,8 +24,9 @@ const popupMessage = document.getElementById('popup-message');
 function cleanThemeName(theme) {
     return theme
         .toLowerCase()
-        .replace(/é/g, 'e') 
-        .replace(/ /g, '_'); 
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // supprime les diacritiques
+        .replace(/[^a-z0-9]+/g, '_')                       // remplace tout ce qui n'est pas alphanum par _
+        .replace(/^_+|_+$/g, '');                          // retire les underscores en début/fin
 }
 
 function shuffleArray(array) {
@@ -219,17 +221,20 @@ function prepareGridForLevel(levelIndex) {
     
     // a. Affecte les images correctes aux indices de grille choisis (randomly)
     // On doit faire une copie car .correctImages est un tableau de référence
-    const shuffedCorrectImages = [...NIVEAUX[levelIndex].correctImages]; 
-    shuffleArray(shuffedCorrectImages); 
+    const shuffledCorrectImages = [...NIVEAUX[levelIndex].correctImages]; 
+    shuffleArray(shuffledCorrectImages); 
     
     for (let k = 0; k < correctImageCount; k++) {
         const correctGridIndex = actualCorrectGridIndices[k];
-        const correctImageID = shuffedCorrectImages[k];
+        const correctImageID = shuffledCorrectImages[k];
         finalImageMapping[correctGridIndex] = correctImageID;
     }
 
     // b. Affecte les images restantes aux indices de grille restants
-    const incorrectImages = imageIndices.filter(imgID => !NIVEAUX[levelIndex].correctImages.includes(imgID));
+    // IMPORTANT: filtre sur NIVEAUX[levelIndex].correctImages (tableau d'IDs corrects)
+    const allPossibleImages = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const incorrectImages = allPossibleImages.filter(imgID => !NIVEAUX[levelIndex].correctImages.includes(imgID));
+    shuffleArray(incorrectImages); // Mélange aussi les images incorrectes
     let incorrectImageIndex = 0;
     
     for (let i = 0; i < 9; i++) {
@@ -242,7 +247,8 @@ function prepareGridForLevel(levelIndex) {
     // 5. Appliquer les images à la grille
     tiles.forEach((tile, i) => {
         const imageNum = finalImageMapping[i];
-        const imageUrl = `./images/${themeClean}_${imageNum}.jpg`; 
+        const prefix = NIVEAUX[levelIndex].imagePrefix || themeClean;
+        const imageUrl = `./images/${prefix}_${imageNum}.jpg`; 
         
         tile.style.backgroundImage = `url(${imageUrl})`; 
         tile.classList.remove('selected'); 
@@ -340,7 +346,7 @@ function showPopup(title, message) {
 }
 
 /**
- * Cache la pop-up. Réinitialise le jeu UNIQUEMENT en cas d'échec.
+ * Cache la pop-up et réinitialise le jeu.
  */
 function hidePopup() {
     // Réinitialise les classes de style
@@ -354,8 +360,6 @@ function hidePopup() {
     // Rétablit l'affichage du curseur fictif
     document.body.style.cursor = 'none'; 
     
-    // Ne réinitialise PAS le jeu pour le succès
-    if (!popupTitle.innerHTML.includes("SUCCÈS")) {
-        resetGame(); 
-    }
+    // Réinitialise toujours le jeu (succès ou échec)
+    resetGame();
 }
