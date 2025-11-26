@@ -74,42 +74,105 @@ document.addEventListener('DOMContentLoaded', () => {
     loadLevel(currentLevel);
     document.getElementById('verify-button').addEventListener('click', checkCaptcha);
     document.getElementById('popup-close-button').addEventListener('click', hidePopup);
-    
+
+    // Gestionnaire pour le bouton "Pardon d'avoir voulu tricher"
+    const pardonBtn = document.getElementById('pardon-button');
+    if (pardonBtn) {
+        pardonBtn.addEventListener('click', () => {
+            hideInspectBlocker();
+            resetGame();
+        });
+    }
+
     // Événement de mouvement de souris pour le curseur fictif
     document.addEventListener('mousemove', handleMouseInversion);
     const tiles = document.querySelectorAll('.tile');
     tiles.forEach(tile => tile.addEventListener('click', handleTileClick));
+
+    // --- DÉSACTIVER INSPECTION BASIQUE ---
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    document.addEventListener('keydown', e => {
+        const k = e.key.toUpperCase();
+        // F12 OR Ctrl+Shift+I/J/C OR Ctrl+U OR Ctrl+S
+        if (k === 'F12' ||
+            (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(k)) ||
+            (e.ctrlKey && k === 'U') ||
+            (e.ctrlKey && k === 'S')) {
+            e.preventDefault();
+            e.stopPropagation();
+            showInspectBlocker("Commencez la partie d'abord — inspection désactivée.");
+        }
+    });
+
+    // --- DÉTECTION SIMPLE DES OUTILS DEV (outer - inner) ---
+    let devtoolsOpen = false;
+    const devCheckInterval = setInterval(() => {
+        const threshold = 160; // ajuste si nécessaire
+        const opened = (window.outerWidth - window.innerWidth) > threshold || (window.outerHeight - window.innerHeight) > threshold;
+        if (opened && !devtoolsOpen) {
+            devtoolsOpen = true;
+            // Bloque l'interface tant que l'utilisateur n'a pas joué
+            showInspectBlocker("Outils de développement détectés — jouez d'abord pour continuer.");
+            // stoppe le timer si en cours
+            if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+        } else if (!opened && devtoolsOpen) {
+            devtoolsOpen = false;
+            hideInspectBlocker();
+        }
+    }, 500);
+
 });
 
+/* ------ Nouveau : mise à jour visuelle du timer (texte + classes couleurs/blink) ------ */
+function updateTimerDisplay(timeLeft) {
+    const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+    const seconds = (timeLeft % 60).toString().padStart(2, '0');
+    document.getElementById('time-value').textContent = `${minutes}:${seconds}`;
 
-// MINUTEUR + LOGIQUE DE TREMBLEMENT
+    const timerEl = document.getElementById('timer-display');
+    timerEl.classList.remove('timer-yellow', 'timer-orange', 'timer-red', 'blink');
+
+    if (timeLeft < 8) {
+        timerEl.classList.add('timer-red', 'blink');
+    } else if (timeLeft < 10) {
+        timerEl.classList.add('timer-red');
+    } else if (timeLeft < 20) {
+        timerEl.classList.add('timer-orange');
+    } else if (timeLeft < 30) {
+        timerEl.classList.add('timer-yellow');
+    }
+}
+
+/* ------ Remplace la fonction startTimer pour affichage immédiat et gestion des classes ------ */
 function startTimer(duration) {
     let timeLeft = duration;
     clearInterval(timerInterval);
-    gameContainer.classList.remove('shake'); 
+    gameContainer.classList.remove('shake');
+
+    // Met à jour l'affichage tout de suite (rafraîchissement instantané au changement de niveau)
+    updateTimerDisplay(timeLeft);
 
     timerInterval = setInterval(() => {
-        
-        // Active le tremblement subtil dans les 5 dernières secondes
+        timeLeft--;
+
+        // Tremblement subtil dans les 5 dernières secondes
         if (timeLeft <= 5 && timeLeft > 0) {
             gameContainer.classList.add('shake');
         } else {
             gameContainer.classList.remove('shake');
         }
-        
+
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            gameContainer.classList.remove('shake'); 
-            document.getElementById('time-value').textContent = `00:00`; 
+            gameContainer.classList.remove('shake');
+            updateTimerDisplay(0);
+            document.getElementById('time-value').textContent = `00:00`;
             gameOver("temps");
             return;
         }
 
-        const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-        const seconds = (timeLeft % 60).toString().padStart(2, '0');
-        document.getElementById('time-value').textContent = `${minutes}:${seconds}`;
-
-        timeLeft--; 
+        updateTimerDisplay(timeLeft);
     }, 1000);
 }
 
@@ -308,7 +371,7 @@ function gameOver(reason) {
     } else if (reason === "captcha") {
         showPopup(
             "❌ ÉCHEC : Aie t'a pas la vision !",
-            `Vous n'avez pas sélectionné toutes les cases contenant un **${currentTheme}** ! On dirait que vous avez besoin de lunettes... ou que vous êtes un bot. Niveau 1 !`
+            `Vous n'avez pas sélectionné toutes les cases contenant un ${currentTheme} ! On dirait que vous avez besoin de lunettes... ou que vous êtes un bot. Niveau 1 !`
         );
     }
 }
@@ -362,4 +425,29 @@ function hidePopup() {
     
     // Réinitialise toujours le jeu (succès ou échec)
     resetGame();
+}
+
+// --- Création / affichage d'un overlay qui bloque l'accès à la page ---
+function createInspectBlocker() {
+    if (document.getElementById('inspect-blocker')) return;
+    const div = document.createElement('div');
+    div.id = 'inspect-blocker';
+    div.innerHTML = '<div class="ib-message"><h3>Inspection désactivée</h3><p>Commencez à jouer pour accéder aux outils.</p></div>';
+    document.body.appendChild(div);
+}
+
+function showInspectBlocker(msg) {
+    createInspectBlocker();
+    const p = document.querySelector('#inspect-blocker .ib-message p');
+    if (p) p.textContent = msg;
+    // empêche la plupart des interactions
+    document.getElementById('inspect-blocker').style.display = 'flex';
+    document.body.style.pointerEvents = 'none';
+    document.getElementById('inspect-blocker').style.pointerEvents = 'auto';
+}
+
+function hideInspectBlocker() {
+    const el = document.getElementById('inspect-blocker');
+    if (el) el.style.display = 'none';
+    document.body.style.pointerEvents = 'auto';
 }

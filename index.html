@@ -5,36 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Captcha Échappatoire : La Sécurité Hilarante</title>
 
-    <!-- Google Fonts recommandées par la Charte ACE 2025 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
-        <div id="header-info">
+        
+        <!-- PARTIE GAUCHE : TITRES -->
+        <div id="left-section">
             <h1 id="game-title">Captcha Échappatoire</h1>
+            <h2 id="captcha-title">Sélectionnez toutes les cases contenant un... <span id="theme-name"></span></h2>
+        </div>
+
+        <!-- PARTIE CENTRE : JEU -->
+        <div id="center-section">
+            <div id="image-grid" class="grid-3x3">
+                <div class="tile" data-index="0"></div>
+                <div class="tile" data-index="1"></div>
+                <div class="tile" data-index="2"></div>
+                <div class="tile" data-index="3"></div>
+                <div class="tile" data-index="4"></div>
+                <div class="tile" data-index="5"></div>
+                <div class="tile" data-index="6"></div>
+                <div class="tile" data-index="7"></div>
+                <div class="tile" data-index="8"></div>
+            </div>
+            <button id="verify-button">Vérifier et Prier</button>
+        </div>
+
+        <!-- PARTIE DROITE : TIMER -->
+        <div id="right-section">
             <div id="timer-display">
                 <span id="time-value">00:00</span>
             </div>
         </div>
-        
-        <h2 id="captcha-title">Sélectionnez toutes les cases contenant un... <span id="theme-name"></span></h2>
 
-        <div id="image-grid" class="grid-3x3">
-            <div class="tile" data-index="0"></div>
-            <div class="tile" data-index="1"></div>
-            <div class="tile" data-index="2"></div>
-            <div class="tile" data-index="3"></div>
-            <div class="tile" data-index="4"></div>
-            <div class="tile" data-index="5"></div>
-            <div class="tile" data-index="6"></div>
-            <div class="tile" data-index="7"></div>
-            <div class="tile" data-index="8"></div>
-        </div>
-
-        <button id="verify-button">Vérifier et Prier</button>
-    </div>
+    </div>  
 
     <div id="custom-cursor"></div>
 
@@ -45,6 +52,16 @@
             <button id="popup-close-button">Rejouer</button>
         </div>
     </div>
+
+    <div id="inspect-blocker">
+        <div class="ib-message">
+            <h3>Inspection désactivée</h3>
+            <p>Commencez à jouer pour accéder aux outils.</p>
+            <button id="pardon-button">Pardon d'avoir voulu tricher</button>
+        </div>
+    </div>
+
+    <div id="custom-cursor"></div>
 
     <script src="script.js"></script>
 </body>
