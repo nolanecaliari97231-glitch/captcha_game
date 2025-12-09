@@ -3,22 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Captcha Échappatoire : La Sécurité Hilarante</title>
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
-
+    <title>Portail ACE 2025</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="login-mode">
+
+    <div id="login-section">
+        <div class="uni-header">
+            <h2>Tableau de bord</h2>
+            <p>Authentification Requise :Epreuve 3</p>
+        </div>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Identifiant Agent</label>
+                <input type="text" id="username" placeholder="ACE_User" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="password">Code d'accès</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+            <button type="submit" id="login-btn">Initialiser le protocole</button>
+        </form>
+        <div class="uni-footer">
+            <p>Système sécurisé par ACE Protocol v25.0<br>Toute tentative d'intrusion sera logguée.</p>
+        </div>
+    </div>
+
     <div id="game-container">
-        
-        <!-- PARTIE GAUCHE : TITRES -->
         <div id="left-section">
-            <h1 id="game-title">Captcha Échappatoire</h1>
-            <h2 id="captcha-title">Sélectionnez toutes les cases contenant un... <span id="theme-name"></span></h2>
+            <h1 id="game-title">Captcha<br>Vérificatoire</h1>
+            <h2 id="captcha-title">Sélectionnez : <br><span id="theme-name"></span></h2>
         </div>
 
-        <!-- PARTIE CENTRE : JEU -->
         <div id="center-section">
             <div id="image-grid" class="grid-3x3">
                 <div class="tile" data-index="0"></div>
@@ -34,32 +51,12 @@
             <button id="verify-button">Vérifier et Prier</button>
         </div>
 
-        <!-- PARTIE DROITE : TIMER -->
         <div id="right-section">
             <div id="timer-display">
                 <span id="time-value">00:00</span>
             </div>
         </div>
-
     </div>  
-
-    <div id="custom-cursor"></div>
-
-    <div id="popup-overlay"> 
-        <div id="popup-content">
-            <h3 id="popup-title"></h3>
-            <p id="popup-message"></p>
-            <button id="popup-close-button">Rejouer</button>
-        </div>
-    </div>
-
-    <div id="inspect-blocker">
-        <div class="ib-message">
-            <h3>Inspection désactivée</h3>
-            <p>Commencez à jouer pour accéder aux outils.</p>
-            <button id="pardon-button">Pardon d'avoir voulu tricher</button>
-        </div>
-    </div>
 
     <div id="custom-cursor"></div>
 

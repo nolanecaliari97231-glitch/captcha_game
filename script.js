@@ -1,10 +1,11 @@
-// --- DÉFINITION GLOBALE DU JEU ---
+// --- CONFIGURATION ---
+const SERVER_API_URL = "./api.php"; 
+
 const NIVEAUX = [
     { theme: "Feu de signalisation", temps: 35, inversion: "none", correctImages: [1, 2, 3] },
     { theme: "Passage piéton", temps: 30, inversion: "none", correctImages: [1, 2, 3] },
     { theme: "Arbre", temps: 25, inversion: "x", correctImages: [1, 2, 3] },
     { theme: "Taxi", temps: 20, inversion: "y", correctImages: [1, 2, 3] },
-    // images réelles nommées hydrant_1.jpg ... hydrant_4.jpg
     { theme: "Bouches d'incendie", temps: 15, inversion: "xy", correctImages: [1, 2, 3, 4], imagePrefix: "hydrant" } 
 ];
 
@@ -12,21 +13,10 @@ let currentLevel = 0;
 let timerInterval;
 const customCursor = document.getElementById('custom-cursor');
 const gameContainer = document.getElementById('game-container'); 
-const popupOverlay = document.getElementById('popup-overlay');
-const popupTitle = document.getElementById('popup-title');
-const popupMessage = document.getElementById('popup-message');
 
-
-// =================================================================================
-// FONCTIONS UTILITAIRES
-// =================================================================================
-
+// --- UTILITAIRES ---
 function cleanThemeName(theme) {
-    return theme
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // supprime les diacritiques
-        .replace(/[^a-z0-9]+/g, '_')                       // remplace tout ce qui n'est pas alphanum par _
-        .replace(/^_+|_+$/g, '');                          // retire les underscores en début/fin
+    return theme.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
 function shuffleArray(array) {
@@ -36,157 +26,136 @@ function shuffleArray(array) {
     }
 }
 
-/**
- * Vérifie si le nouvel index (i) est adjacent (horizontalement ou verticalement)
- * à l'un des indices déjà corrects (currentCorrects) sur une grille 3x3.
- */
 function isAdjacent(i, currentCorrects) {
     if (currentCorrects.length === 0) return false;
-
     for (const correctIndex of currentCorrects) {
-        // Voisinage Vertical (Haut/Bas : différence de 3)
-        if (i === correctIndex - 3 || i === correctIndex + 3) {
-            return true;
-        }
-        
-        // Voisinage Horizontal (Gauche/Droite : différence de 1)
-        // Vérifie aussi qu'ils sont sur la même ligne (pour éviter 2 adjacent à 3, ou 5 à 6)
-        if (Math.abs(i - correctIndex) === 1 && Math.floor(i / 3) === Math.floor(correctIndex / 3)) {
-            return true;
-        }
+        if (i === correctIndex - 3 || i === correctIndex + 3) return true;
+        if (Math.abs(i - correctIndex) === 1 && Math.floor(i / 3) === Math.floor(correctIndex / 3)) return true;
     }
-    
     return false;
 }
 
+function getInvertedCoords(realX, realY) {
+    if (!NIVEAUX[currentLevel]) return { x: realX, y: realY };
+    const inversionType = NIVEAUX[currentLevel].inversion;
+    let finalX = realX, finalY = realY;
 
-// =================================================================================
-// BLOC 1 : MOTEUR ET ÉVÉNEMENTS
-// =================================================================================
+    if (inversionType.includes('x')) finalX = window.innerWidth - realX;
+    if (inversionType.includes('y')) finalY = window.innerHeight - realY;
 
+    finalX = Math.max(0, Math.min(window.innerWidth - 1, finalX));
+    finalY = Math.max(0, Math.min(window.innerHeight - 1, finalY));
+    return { x: finalX, y: finalY };
+}
+
+function getMirroredIndex(index, type) {
+    let row = Math.floor(index / 3);
+    let col = index % 3;
+    if (type.includes('x')) col = 2 - col;
+    if (type.includes('y')) row = 2 - row;
+    return row * 3 + col;
+}
+
+// --- INITIALISATION ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Masque le curseur système
-    document.body.style.cursor = 'none'; 
-    
-    // Initialise le curseur personnalisé
-    customCursor.style.display = 'block';
-    
-    loadLevel(currentLevel);
-    document.getElementById('verify-button').addEventListener('click', checkCaptcha);
-    document.getElementById('popup-close-button').addEventListener('click', hidePopup);
-
-    // Gestionnaire pour le bouton "Pardon d'avoir voulu tricher"
-    const pardonBtn = document.getElementById('pardon-button');
-    if (pardonBtn) {
-        pardonBtn.addEventListener('click', () => {
-            hideInspectBlocker();
-            resetGame();
+    const loginForm = document.getElementById('login-form');
+    if(loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            
+            // --- IDENTIFIANTS ---
+            if (user === "Admin" && pass === "1234") {
+                launchGame();
+            } else {
+                alert("Identifiant ou mot de passe incorrect.");
+            }
         });
     }
 
-    // Événement de mouvement de souris pour le curseur fictif
-    document.addEventListener('mousemove', handleMouseInversion);
-    const tiles = document.querySelectorAll('.tile');
-    tiles.forEach(tile => tile.addEventListener('click', handleTileClick));
-
-    // --- DÉSACTIVER INSPECTION BASIQUE ---
-    document.addEventListener('contextmenu', e => e.preventDefault());
-
-    document.addEventListener('keydown', e => {
-        const k = e.key.toUpperCase();
-        // F12 OR Ctrl+Shift+I/J/C OR Ctrl+U OR Ctrl+S
-        if (k === 'F12' ||
-            (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(k)) ||
-            (e.ctrlKey && k === 'U') ||
-            (e.ctrlKey && k === 'S')) {
-            e.preventDefault();
-            e.stopPropagation();
-            showInspectBlocker("Commencez la partie d'abord — inspection désactivée.");
-        }
-    });
-
-    // --- DÉTECTION SIMPLE DES OUTILS DEV (outer - inner) ---
-    let devtoolsOpen = false;
-    const devCheckInterval = setInterval(() => {
-        const threshold = 160; // ajuste si nécessaire
-        const opened = (window.outerWidth - window.innerWidth) > threshold || (window.outerHeight - window.innerHeight) > threshold;
-        if (opened && !devtoolsOpen) {
-            devtoolsOpen = true;
-            // Bloque l'interface tant que l'utilisateur n'a pas joué
-            showInspectBlocker("Outils de développement détectés — jouez d'abord pour continuer.");
-            // stoppe le timer si en cours
-            if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
-        } else if (!opened && devtoolsOpen) {
-            devtoolsOpen = false;
-            hideInspectBlocker();
-        }
-    }, 500);
-
+    // Gestion souris globale
+    document.addEventListener('mousemove', handleGlobalMouseMove, true);
+    document.addEventListener('click', handleGlobalClick, true);
 });
 
-/* ------ Nouveau : mise à jour visuelle du timer (texte + classes couleurs/blink) ------ */
-function updateTimerDisplay(timeLeft) {
-    const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-    const seconds = (timeLeft % 60).toString().padStart(2, '0');
-    document.getElementById('time-value').textContent = `${minutes}:${seconds}`;
+function isGameActive() {
+    return gameContainer && gameContainer.offsetParent !== null;
+}
 
-    const timerEl = document.getElementById('timer-display');
-    timerEl.classList.remove('timer-yellow', 'timer-orange', 'timer-red', 'blink');
+// --- GESTION SOURIS (Inversion & Piège) ---
+function handleGlobalMouseMove(e) {
+    if (!isGameActive()) return;
 
-    if (timeLeft < 8) {
-        timerEl.classList.add('timer-red', 'blink');
-    } else if (timeLeft < 10) {
-        timerEl.classList.add('timer-red');
-    } else if (timeLeft < 20) {
-        timerEl.classList.add('timer-orange');
-    } else if (timeLeft < 30) {
-        timerEl.classList.add('timer-yellow');
+    customCursor.style.display = 'block';
+    const coords = getInvertedCoords(e.clientX, e.clientY);
+    customCursor.style.left = coords.x + 'px';
+    customCursor.style.top = coords.y + 'px';
+
+    // Effet visuel sur le bouton si la VRAIE souris passe dessus
+    const verifyBtn = document.getElementById('verify-button');
+    if (verifyBtn) {
+        customCursor.style.visibility = 'hidden'; 
+        if (e.target.closest('#verify-button')) {
+            verifyBtn.classList.add('force-hover');
+        } else {
+            verifyBtn.classList.remove('force-hover');
+        }
+        customCursor.style.visibility = 'visible';
     }
 }
 
-/* ------ Remplace la fonction startTimer pour affichage immédiat et gestion des classes ------ */
-function startTimer(duration) {
-    let timeLeft = duration;
-    clearInterval(timerInterval);
-    gameContainer.classList.remove('shake');
+function handleGlobalClick(e) {
+    if (!isGameActive()) return;
 
-    // Met à jour l'affichage tout de suite (rafraîchissement instantané au changement de niveau)
-    updateTimerDisplay(timeLeft);
+    // 1. Priorité au bouton avec la VRAIE souris (Piège)
+    if (e.target.closest('#verify-button')) {
+        checkCaptcha();
+        return;
+    }
 
-    timerInterval = setInterval(() => {
-        timeLeft--;
+    // 2. Gestion Tuiles avec le curseur ROSE (Miroir)
+    const coords = getInvertedCoords(e.clientX, e.clientY);
+    customCursor.style.visibility = 'hidden'; 
+    const targetElement = document.elementFromPoint(coords.x, coords.y);
+    customCursor.style.visibility = 'visible';
 
-        // Tremblement subtil dans les 5 dernières secondes
-        if (timeLeft <= 5 && timeLeft > 0) {
-            gameContainer.classList.add('shake');
-        } else {
-            gameContainer.classList.remove('shake');
-        }
-
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            gameContainer.classList.remove('shake');
-            updateTimerDisplay(0);
-            document.getElementById('time-value').textContent = `00:00`;
-            gameOver("temps");
+    if (targetElement) {
+        const tile = targetElement.closest('.tile');
+        if (tile) {
+            const visualIndex = parseInt(tile.getAttribute('data-index'));
+            const inversionType = NIVEAUX[currentLevel].inversion;
+            const targetIndex = getMirroredIndex(visualIndex, inversionType);
+            
+            const targetTile = document.querySelector(`.tile[data-index="${targetIndex}"]`);
+            if (targetTile) targetTile.classList.toggle('selected');
+            
+            e.stopPropagation(); e.preventDefault();
             return;
         }
+    }
+    
+    // Annule les clics dans le vide
+    e.stopPropagation(); e.preventDefault();
+}
 
-        updateTimerDisplay(timeLeft);
-    }, 1000);
+// --- MOTEUR DE JEU ---
+function launchGame() {
+    document.getElementById('login-section').style.display = 'none';
+    gameContainer.style.display = 'grid'; 
+    document.body.classList.remove('login-mode');
+    document.body.classList.add('game-mode');
+    loadLevel(currentLevel);
 }
 
 function loadLevel(levelIndex) {
     document.getElementById('theme-name').textContent = NIVEAUX[levelIndex].theme;
-    
     document.querySelectorAll('.tile').forEach(tile => tile.classList.remove('selected'));
-    
     prepareGridForLevel(levelIndex); 
     startTimer(NIVEAUX[levelIndex].temps);
 }
 
 function nextLevel() {
-    gameContainer.classList.remove('shake'); 
     currentLevel++;
     if (currentLevel < NIVEAUX.length) {
         loadLevel(currentLevel);
@@ -200,254 +169,112 @@ function resetGame() {
     loadLevel(currentLevel);
 }
 
-
-// =================================================================================
-// BLOC 2 : INVERSION DE LA SOURIS 
-// =================================================================================
-
-function handleMouseInversion(e) {
-    
-    if (popupOverlay.classList.contains('active')) {
-        return; 
-    }
-
-    // Affiche le curseur s'il est caché
-    if (customCursor.style.display === 'none') {
-        customCursor.style.display = 'block';
-    }
-
-    const inversionType = NIVEAUX[currentLevel].inversion;
-    let newX = e.clientX;
-    let newY = e.clientY;
-    
-    if (inversionType.includes('x')) {
-        newX = window.innerWidth - e.clientX; 
-    }
-    
-    if (inversionType.includes('y')) {
-        newY = window.innerHeight - e.clientY; 
-    }
-
-    // Positionne le curseur
-    customCursor.style.left = newX + 'px';
-    customCursor.style.top = newY + 'px';
-}
-
-
-// =================================================================================
-// BLOC 3 : LOGIQUE DU CAPTCHA
-// =================================================================================
-
 function prepareGridForLevel(levelIndex) {
     const themeClean = cleanThemeName(NIVEAUX[levelIndex].theme);
     const tiles = document.querySelectorAll('.tile');
     const correctImageCount = NIVEAUX[levelIndex].correctImages.length;
-    
     let actualCorrectGridIndices = [];
-    let imageIndices = [];
-    let gridIndices = [];
     
-    // --- NOUVELLE LOGIQUE POUR ÉVITER L'ADJACENCE (DO...WHILE) ---
+    // Logique anti-adjacence
     do {
-        // 1. Réinitialiser
         actualCorrectGridIndices = [];
-        
-        // 2. Préparer les indices d'images (1 à 9) et les indices de grille (0 à 8)
-        imageIndices = [1, 2, 3, 4, 5, 6, 7, 8, 9]; 
-        shuffleArray(imageIndices); 
-        
-        gridIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-        shuffleArray(gridIndices); // Mélange l'ordre d'affectation des indices de grille
-        
-        // 3. Essayer de placer les images correctes
+        let gridIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        shuffleArray(gridIndices);
         let correctImageCounter = 0;
-        
         for (const gridIndex of gridIndices) {
-            // Vérifie si on a déjà atteint le nombre d'images correctes
             if (correctImageCounter >= correctImageCount) break; 
-            
-            // Si la tuile N'EST PAS adjacente aux tuiles correctes déjà sélectionnées
             if (!isAdjacent(gridIndex, actualCorrectGridIndices)) {
-                
-                // Marque cet indice de grille comme correct
                 actualCorrectGridIndices.push(gridIndex);
                 correctImageCounter++;
             }
         }
-    
-    // Répéter si on n'a pas réussi à placer le nombre requis d'images correctes
     } while (actualCorrectGridIndices.length < correctImageCount);
     
-    // 4. Une fois que les indices de grille CORRECTS sont choisis, on distribue les images
-    
     const finalImageMapping = new Array(9);
-    
-    // a. Affecte les images correctes aux indices de grille choisis (randomly)
-    // On doit faire une copie car .correctImages est un tableau de référence
     const shuffledCorrectImages = [...NIVEAUX[levelIndex].correctImages]; 
     shuffleArray(shuffledCorrectImages); 
-    
     for (let k = 0; k < correctImageCount; k++) {
-        const correctGridIndex = actualCorrectGridIndices[k];
-        const correctImageID = shuffledCorrectImages[k];
-        finalImageMapping[correctGridIndex] = correctImageID;
+        finalImageMapping[actualCorrectGridIndices[k]] = shuffledCorrectImages[k];
     }
-
-    // b. Affecte les images restantes aux indices de grille restants
-    // IMPORTANT: filtre sur NIVEAUX[levelIndex].correctImages (tableau d'IDs corrects)
     const allPossibleImages = [1, 2, 3, 4, 5, 6, 7, 8, 9];
     const incorrectImages = allPossibleImages.filter(imgID => !NIVEAUX[levelIndex].correctImages.includes(imgID));
-    shuffleArray(incorrectImages); // Mélange aussi les images incorrectes
+    shuffleArray(incorrectImages); 
     let incorrectImageIndex = 0;
-    
     for (let i = 0; i < 9; i++) {
         if (finalImageMapping[i] === undefined) {
             finalImageMapping[i] = incorrectImages[incorrectImageIndex];
             incorrectImageIndex++;
         }
     }
-    
-    // 5. Appliquer les images à la grille
     tiles.forEach((tile, i) => {
         const imageNum = finalImageMapping[i];
         const prefix = NIVEAUX[levelIndex].imagePrefix || themeClean;
         const imageUrl = `./images/${prefix}_${imageNum}.jpg`; 
-        
         tile.style.backgroundImage = `url(${imageUrl})`; 
-        tile.classList.remove('selected'); 
     });
-    
-    // 6. Sauvegarder les vrais indices corrects pour la vérification
     NIVEAUX[levelIndex].currentCorrectGridIndices = actualCorrectGridIndices;
 }
 
-
-function handleTileClick(event) {
-    event.currentTarget.classList.toggle('selected');
-}
-
-function getUserSelectedTiles() {
-    const selectedTiles = Array.from(document.querySelectorAll('.tile.selected'));
-    return selectedTiles.map(tile => parseInt(tile.getAttribute('data-index'))).sort((a, b) => a - b);
-}
-
 function checkCaptcha() {
-    const userSelections = getUserSelectedTiles();
-    
+    const userSelections = Array.from(document.querySelectorAll('.tile.selected')).map(t => parseInt(t.getAttribute('data-index'))).sort((a,b)=>a-b);
     const correctTiles = NIVEAUX[currentLevel].currentCorrectGridIndices.sort((a, b) => a - b); 
-
-    const isCorrect = userSelections.length === correctTiles.length &&
-                      userSelections.every((tile, index) => tile === correctTiles[index]);
+    const isCorrect = userSelections.length === correctTiles.length && userSelections.every((val, index) => val === correctTiles[index]);
 
     if (isCorrect) {
         clearInterval(timerInterval);
+        // --- NOUVEAU : ALERTE DE SUCCÈS ENTRE LES NIVEAUX ---
+        alert("✅ Niveau validé ! Passage au suivant...");
         nextLevel();
     } else {
-        gameOver("captcha");
+        alert("❌ Mauvaise sélection ! Recommencez.");
+        resetGame();
     }
 }
 
-
-// =================================================================================
-// BLOC 4 : GESTION DES POP-UPS
-// =================================================================================
-
-function gameOver(reason) {
+// --- GESTION FIN (VERSION ALERTES SIMPLES) ---
+async function winGame() {
     clearInterval(timerInterval);
-    gameContainer.classList.remove('shake'); 
-    const currentTheme = NIVEAUX[currentLevel].theme.toLowerCase();
+    
+    const params = new URLSearchParams({ clickSequence: "reverse_ok", zone: "3", valid: "true" });
 
-    // Réinitialise les classes de style au cas où
-    const popupContent = document.querySelector('#popup-content');
-    popupContent.classList.remove('success-popup');
-    popupTitle.classList.remove('success-title');
-    popupMessage.classList.remove('success-message');
+    try {
+        const response = await fetch(`${SERVER_API_URL}?${params.toString()}`);
+        const data = await response.json();
 
-    if (reason === "temps") {
-        showPopup(
-            "⏱️ ÉCHEC : Il est lent ce lait !",
-            "Le temps s'est écoulé ! Le système a pris votre lenteur pour de l'hésitation. Retour au niveau 1. Allez activo !"
-        );
-    } else if (reason === "captcha") {
-        showPopup(
-            "❌ ÉCHEC : Aie t'a pas la vision !",
-            `Vous n'avez pas sélectionné toutes les cases contenant un ${currentTheme} ! On dirait que vous avez besoin de lunettes... ou que vous êtes un bot. Niveau 1 !`
-        );
+        if (data.success) {
+            alert("SUCCÈS !\n" + data.message + "\n\nHumanité confirmée. Accès autorisé.");
+            location.reload(); 
+        } else {
+            alert("ERREUR : " + data.message);
+            resetGame();
+        }
+    } catch (error) {
+        alert("Erreur de connexion au serveur.");
+        console.error(error);
+        resetGame();
     }
 }
 
-function winGame() {
+function startTimer(duration) {
+    let timeLeft = duration;
     clearInterval(timerInterval);
-    gameContainer.classList.remove('shake'); 
-    
-    // Utilise des classes spécifiques pour le style de succès
-    const popupContent = document.querySelector('#popup-content');
-    popupContent.classList.add('success-popup');
-    
-    showPopup(
-        "🎉 SUCCÈS : HUMANITÉ CONFIRMÉE !",
-        "FÉLICITATIONS ! Vous avez survécu à l'épreuve de l'inversion et de la pression temporelle. Le code final pour l'Escape Game est : <strong>U-HUMAIN-1337</strong> !"
-    );
-    
-    // Ajoute les classes de style pour le succès après l'affichage
-    setTimeout(() => {
-        popupTitle.classList.add('success-title');
-        popupMessage.classList.add('success-message');
-    }, 10);
-}
+    document.getElementById('time-value').textContent = `00:${timeLeft.toString().padStart(2, '0')}`;
+    // Gestion couleur timer
+    const timerEl = document.getElementById('timer-display');
+    timerEl.classList.remove('timer-red', 'blink');
 
-function showPopup(title, message) {
-    popupTitle.innerHTML = title;
-    popupMessage.innerHTML = message;
-    
-    popupOverlay.classList.add('active'); 
-    
-    // Masque le curseur fictif
-    customCursor.style.display = 'none'; 
-    // Restaure le curseur par défaut
-    document.body.style.cursor = 'default'; 
-}
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('time-value').textContent = `00:${timeLeft.toString().padStart(2, '0')}`;
+        
+        if (timeLeft < 10) {
+            timerEl.classList.add('timer-red', 'blink');
+        }
 
-/**
- * Cache la pop-up et réinitialise le jeu.
- */
-function hidePopup() {
-    // Réinitialise les classes de style
-    const popupContent = document.querySelector('#popup-content');
-    popupContent.classList.remove('success-popup');
-    popupTitle.classList.remove('success-title');
-    popupMessage.classList.remove('success-message');
-    
-    popupOverlay.classList.remove('active');
-    
-    // Rétablit l'affichage du curseur fictif
-    document.body.style.cursor = 'none'; 
-    
-    // Réinitialise toujours le jeu (succès ou échec)
-    resetGame();
-}
-
-// --- Création / affichage d'un overlay qui bloque l'accès à la page ---
-function createInspectBlocker() {
-    if (document.getElementById('inspect-blocker')) return;
-    const div = document.createElement('div');
-    div.id = 'inspect-blocker';
-    div.innerHTML = '<div class="ib-message"><h3>Inspection désactivée</h3><p>Commencez à jouer pour accéder aux outils.</p></div>';
-    document.body.appendChild(div);
-}
-
-function showInspectBlocker(msg) {
-    createInspectBlocker();
-    const p = document.querySelector('#inspect-blocker .ib-message p');
-    if (p) p.textContent = msg;
-    // empêche la plupart des interactions
-    document.getElementById('inspect-blocker').style.display = 'flex';
-    document.body.style.pointerEvents = 'none';
-    document.getElementById('inspect-blocker').style.pointerEvents = 'auto';
-}
-
-function hideInspectBlocker() {
-    const el = document.getElementById('inspect-blocker');
-    if (el) el.style.display = 'none';
-    document.body.style.pointerEvents = 'auto';
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            alert("⏰ Temps écoulé ! Vous avez été trop lent.");
+            resetGame();
+        }
+    }, 1000);
 }
